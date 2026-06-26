@@ -1,0 +1,43 @@
+# Local env files (real credentials) — never commit
+.env
+.env.local
+.env.*.local
+.env.docker
+.env.aws
+.env.production
+
+# Tracked template + dev defaults — safe to commit
+!.env.example
+!.env.development
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.ade/
+
+# Logs
+*.log
+log/
+
+# Ruby / Rails
+.bundle/
+vendor/bundle/
+tmp/cache/
+tmp/pids/
+storage/
+
+# Node
+node_modules/
+
+# Build
+build/
+dist/
+
+# Tooling
+.tool-versions.bak

@@ -36,11 +36,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - .env.aws
     environment:
       DATABASE_URL: postgres://app_perfil:dev_password@postgres:5432/app_perfil_development?sslmode=disable
       AWS_REGION: us-east-1
-      AWS_ACCESS_KEY_ID: 
-      AWS_SECRET_ACCESS_KEY: 
       REKOGNITION_COLLECTION_ID: socios_stadium_users
       FACE_SEARCH_TOKEN: dev-face-search-token
       CORS_ORIGINS: "http://localhost:5173,http://localhost:5174"
@@ -60,6 +60,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - .env.aws
     environment:
       DATABASE_URL: postgres://app_perfil:dev_password@postgres:5432/app_perfil_development
       REDIS_URL: redis://redis:6379/1
@@ -70,8 +72,6 @@ services:
       AWS_REGION: us-east-1
       AWS_S3_BUCKET_NAME: perfilamiento-faces
       REKOGNITION_COLLECTION_ID: socios_stadium_users
-      AWS_ACCESS_KEY_ID: 
-      AWS_SECRET_ACCESS_KEY: 
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/up || exit 1"]
       interval: 10s
