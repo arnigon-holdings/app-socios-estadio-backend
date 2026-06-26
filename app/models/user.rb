@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 class User < ApplicationRecord
   has_secure_password
 
   has_many :point_transactions, dependent: :destroy
   has_many :point_actions, through: :point_transactions
+  has_many :face_records, dependent: :destroy
 
   validates :rut, presence: true, uniqueness: true
   validates :phone, presence: true
@@ -11,8 +14,6 @@ class User < ApplicationRecord
   validates :photo_url, presence: true
   validates :teams_ids, length: { maximum: 5 }, allow_blank: true
 
-  validate :validate_rut_format
-  validate :validate_rut_checksum
   validate :validate_birth_year
 
   before_validation :normalize_rut
@@ -30,20 +31,20 @@ class User < ApplicationRecord
   def normalize_rut
     return unless rut.present?
 
-    self.rut = rut.gsub(/[.\-]/, "").upcase
+    self.rut = rut.gsub(/[.-]/, '').upcase
   end
 
   def validate_rut_format
     return unless rut.present?
 
-    unless rut =~ /^\d{7,8}[0-9K]$/i
-      errors.add(:rut, "formato inválido")
-    end
+    return if rut =~ /^\d{7,10}[0-9K]$/i
+
+    errors.add(:rut, 'formato inválido')
   end
 
   def validate_rut_checksum
     return unless rut.present?
-    return unless rut =~ /^\d{7,8}[0-9K]$/i
+    return unless rut =~ /^\d{7,9}[0-9K]$/i
 
     body = rut[0..-2].to_i
     dv = rut[-1].upcase
@@ -54,21 +55,21 @@ class User < ApplicationRecord
 
     remainder = sum % 11
     expected = case 11 - remainder
-               when 10 then "K"
-               when 11 then "0"
+               when 10 then 'K'
+               when 11 then '0'
                else (11 - remainder).to_s
                end
 
-    unless dv == expected
-      errors.add(:rut, "inválido")
-    end
+    return if dv == expected
+
+    errors.add(:rut, 'inválido')
   end
 
   def validate_birth_year
     return unless birth_year.present?
 
-    if birth_year < 1900 || birth_year > Date.current.year
-      errors.add(:birth_year, "año inválido")
-    end
+    return unless birth_year < 1900 || birth_year > Date.current.year
+
+    errors.add(:birth_year, 'año inválido')
   end
 end

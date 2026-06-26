@@ -13,6 +13,9 @@ gem "seedbank", "~> 0.5"
 gem "kaminari", "~> 1.2"
 gem "bootsnap", require: false
 
+gem "aws-sdk-rekognition", "~> 1.110"
+gem "aws-sdk-s3", "~> 1.180"
+
 group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
   gem "brakeman", require: false
