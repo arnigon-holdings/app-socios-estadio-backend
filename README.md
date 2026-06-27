@@ -229,7 +229,7 @@ Estas credenciales se crean con `rails db:seed`. **Nunca setear en producción**
 - **`Rekognition.QualityFilter: AUTO`** descarta fotos borrosas automáticamente (warning logged, no bloquea).
 - **Sin Sidekiq todavía**: `FaceIndexer` corre inline en el controller (sync). Aceptable para volúmenes actuales (~10s por registro). Migrar a ActiveJob + Sidekiq si crece.
 
-## Próximos pasos (ver CHECKLIST.md)
+## Próximos pasos (ver [CHECKLIST.md](https://github.com/arnigon-holdings/app-socios-estadio-docs/blob/main/CHECKLIST.md))
 
 - Tests unitarios `FaceIndexer` + `S3Uploader`.
 - Retry con backoff para `IndexFaces`.
