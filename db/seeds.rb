@@ -25,9 +25,9 @@ puts "Seeding database..."
 
 puts "Creating admins..."
 admins = [
-  { email: "admin@appperfil.cl", password: "Admin123!", role: "superadmin" },
-  { email: "operador@appperfil.cl", password: "Operador123!", role: "admin" },
-  { email: "soporte@appperfil.cl", password: "Soporte123!", role: "admin" }
+  { email: ENV.fetch("SEED_ADMIN_EMAIL", "admin@appperfil.cl"),     password: ENV.fetch("SEED_ADMIN_PASSWORD",     "Admin123!"),    role: "superadmin" },
+  { email: ENV.fetch("SEED_OPERATOR_EMAIL", "operador@appperfil.cl"), password: ENV.fetch("SEED_OPERATOR_PASSWORD", "Operador123!"), role: "admin" },
+  { email: ENV.fetch("SEED_SUPPORT_EMAIL",  "soporte@appperfil.cl"),  password: ENV.fetch("SEED_SUPPORT_PASSWORD",  "Soporte123!"),  role: "admin" }
 ]
 
 admins.each do |attrs|
@@ -122,9 +122,9 @@ end
 
 puts "Done! Database seeded successfully."
 puts ""
-puts "Admin credentials:"
-puts "  Email: admin@appperfil.cl"
-puts "  Password: Admin123!"
+puts "Admin credentials (dev defaults — override via SEED_*_PASSWORD env):"
+puts "  Email: #{ENV.fetch('SEED_ADMIN_EMAIL', 'admin@appperfil.cl')}"
+puts "  Password: #{ENV.fetch('SEED_ADMIN_PASSWORD', 'Admin123!')}"
 puts ""
 puts "Teams created: #{Team.count}"
 puts "Point actions created: #{PointAction.count}"

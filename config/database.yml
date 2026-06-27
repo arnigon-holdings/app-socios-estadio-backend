@@ -3,7 +3,7 @@ default: &default
   encoding: unicode
   pool: <%= ENV.fetch("DB_POOL") { 5 } %>
   username: <%= ENV.fetch("DB_USER", "app_perfil") %>
-  password: <%= ENV.fetch("DB_PASSWORD", "dev_password") %>
+  password: <%= ENV["DB_PASSWORD"] || (Rails.env.production? ? raise("DB_PASSWORD not set") : "dev_password") %>
   host: <%= ENV.fetch("DB_HOST", "localhost") %>
 
 development:

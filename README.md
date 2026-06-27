@@ -113,18 +113,103 @@ docker compose logs -f face-search
 
 ## Env vars
 
-| Var | Source | Descripción |
+Toda la configuración de runtime vive en variables de entorno. **No hay secretos hardcodeados en código**.
+
+### Archivos de configuración
+
+| Archivo | Estado | Propósito |
 |---|---|---|
-| `DATABASE_URL` | compose | Postgres |
-| `REDIS_URL` | compose | Redis (rate-limit, futuro Sidekiq) |
-| `RAILS_ENV` | compose | `development` |
-| `JWT_SECRET_KEY` | compose | HMAC para JWTs |
-| `CORS_ORIGINS` | compose | Origins permitidos (separados por coma) |
-| `AWS_REGION` | `.env.aws` | us-east-1 |
-| `AWS_ACCESS_KEY_ID` | `.env.aws` | (gitignored) |
-| `AWS_SECRET_ACCESS_KEY` | `.env.aws` | (gitignored) |
-| `AWS_S3_BUCKET_NAME` | compose | `perfilamiento-faces` |
-| `REKOGNITION_COLLECTION_ID` | compose | `socios_stadium_users` |
+| `backend/.env.example` | tracked | Template con todas las variables documentadas (placeholders) |
+| `backend/.env.development` | tracked (sin secretos reales) | Defaults de dev — funciona out-of-the-box con `docker compose up` |
+| `backend/.env.aws` | gitignored | Credenciales AWS IAM (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). Solo dev. En prod usar IAM role. |
+| `backend/.env.production` | gitignored | Override de prod — seteado por Secret Manager / Cloud Run |
+
+### Cómo cargar variables
+
+- **Docker Compose (dev)**: lee `backend/.env.development` y `backend/.env.aws` automáticamente. Cualquier variable en `environment:` del compose usa `${VAR}` con fallback `${VAR:-default}`.
+- **Producción (Cloud Run)**: las variables se montan desde GCP Secret Manager (`--set-secrets`) o env vars del servicio. Nunca en el código.
+- **Tests**: `RAILS_ENV=test bundle exec rails db:test:prepare` carga solo lo mínimo (DB `app_perfil_test`).
+
+### Tabla de variables
+
+#### Rails core
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `RAILS_ENV` | sí | `development` | Entorno Rails (development/test/production) |
+| `RAILS_LOG_LEVEL` | no | `info` | Nivel de log (`debug`, `info`, `warn`, `error`) |
+| `RAILS_SERVE_STATIC_FILES` | no | — | Si truthy, Rails sirve `/public` (no usar, prefer Nginx/CDN) |
+| `SECRET_KEY_BASE` | **sí (prod)** | — | Firma de cookies/secrets de Rails. Generar con `rails secret`. ≥ 64 chars. **PROD: raise si falta**. |
+| `JWT_SECRET_KEY` | **sí** | dev default | HMAC para firmar JWT (admin + socio). ≥ 32 chars. **PROD: raise si falta**. |
+| `PORT` | no | `3000` | Puerto del server Rails |
+
+#### Postgres
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `DATABASE_URL` | sí (prod) | — | URL completa de Postgres. Tiene prioridad sobre DB_HOST/USER/PASSWORD. |
+| `DB_HOST` | sí (dev) | `localhost` | Host de Postgres |
+| `DB_PORT` | no | `5432` | Puerto |
+| `DB_USER` | no | `app_perfil` | Usuario de la DB |
+| `DB_PASSWORD` | **sí (prod)** | dev default | Password de la DB. **PROD: raise si falta**. |
+| `DB_POOL` | no | `5` | Pool de conexiones ActiveRecord |
+
+#### Redis
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `REDIS_URL` | sí | — | Conexión Redis (rate-limit Rack::Attack, futuro Sidekiq) |
+
+#### CORS
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `CORS_ORIGINS` | sí | `localhost:5173,5174` | CSV de origins permitidos para CORS. Sin esto, default a localhost dev. |
+
+#### AWS — credenciales + región
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `AWS_REGION` | sí | `us-east-1` | Región AWS (Rekognition + S3) |
+| `AWS_ACCESS_KEY_ID` | solo dev | — | IAM user con permisos S3 + Rekognition. **PROD: usar IAM role, no env var**. |
+| `AWS_SECRET_ACCESS_KEY` | solo dev | — | Idem. **PROD: IAM role**. |
+| `AWS_PROFILE` | opcional | — | Alternativa: shared AWS profile. Si está set, tiene prioridad sobre ACCESS_KEY. |
+
+#### AWS — S3
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `AWS_S3_BUCKET_NAME` | sí | `perfilamiento-faces` | Bucket donde se suben las fotos de referencia + audit. |
+| `ACTIVE_STORAGE_SERVICE` | no | `local` | `local` (dev: filesystem) o `r2` (prod: Cloudflare R2). |
+
+#### AWS — Rekognition
+
+| Var | Requerida | Default dev | Para qué sirve |
+|---|---|---|---|
+| `REKOGNITION_COLLECTION_ID` | sí | `socios_stadium_users` | ID de la colección de Rekognition donde se indexan las caras. |
+
+#### Seed admin (solo dev)
+
+Estas credenciales se crean con `rails db:seed`. **Nunca setear en producción**.
+
+| Var | Default dev | Para qué sirve |
+|---|---|---|
+| `SEED_ADMIN_EMAIL` | `admin@appperfil.cl` | Email del superadmin seed |
+| `SEED_ADMIN_PASSWORD` | `Admin123!` | Password del superadmin seed |
+| `SEED_OPERATOR_EMAIL` | `operador@appperfil.cl` | Email del operador seed |
+| `SEED_OPERATOR_PASSWORD` | `Operador123!` | Password del operador seed |
+| `SEED_SUPPORT_EMAIL` | `soporte@appperfil.cl` | Email del soporte seed |
+| `SEED_SUPPORT_PASSWORD` | `Soporte123!` | Password del soporte seed |
+
+### Dónde cambiar cada clave (resumen rápido)
+
+- **Cambiar passwords admin**: setear `SEED_ADMIN_PASSWORD`, `SEED_OPERATOR_PASSWORD`, `SEED_SUPPORT_PASSWORD` en `.env.development` (dev) o Secret Manager (prod). Después correr `rails db:seed` para recrear.
+- **Cambiar password DB local**: editar `POSTGRES_PASSWORD` en `.env.development` y `docker-compose.yml` (línea `POSTGRES_PASSWORD:`). El service de Postgres debe reiniciarse.
+- **Cambiar bucket S3**: `AWS_S3_BUCKET_NAME` en `.env.development` (dev) o Secret Manager (prod). Datos viejos quedan en el bucket anterior.
+- **Cambiar colección Rekognition**: `REKOGNITION_COLLECTION_ID`. **Cuidado**: cambiar esto invalida todos los face_ids existentes (no hay migración).
+- **Cambiar CORS origins**: `CORS_ORIGINS` (CSV). Ej: `CORS_ORIGINS=https://app.x.cl,https://admin.x.cl`.
+- **Rotar JWT secret**: cambiar `JWT_SECRET_KEY`. **Invalida todas las sesiones activas** — los usuarios deben re-loguearse.
+- **Rotar AWS keys**: en IAM console crear nuevas, actualizar `backend/.env.aws` (dev) o Service Account key (prod). Borrar viejas.
 
 ## Gotchas
 
