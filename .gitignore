@@ -24,7 +24,7 @@ Thumbs.db
 # Logs
 *.log
 log/
-log/*.log
+log/development.log
 
 # Ruby / Rails
 .bundle/
