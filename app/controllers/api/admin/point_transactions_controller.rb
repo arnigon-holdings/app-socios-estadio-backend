@@ -18,7 +18,7 @@ module Api
           transactions: transactions.map { |pt| transaction_response(pt) },
           pagination: {
             page: transactions.current_page,
-            per_page: transactions.per_page,
+            per_page: transactions.limit_value,
             total: transactions.total_count,
             pages: transactions.total_pages
           }
