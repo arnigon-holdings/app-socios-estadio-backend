@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_20_000001) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_26_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -35,6 +35,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_20_000001) do
     t.datetime "created_at", null: false
     t.index ["admin_id", "created_at"], name: "index_audit_logs_on_admin_id"
     t.index ["resource_type", "resource_id"], name: "index_audit_logs_on_resource"
+  end
+
+  create_table "face_records", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "rekognition_face_id", null: false
+    t.string "s3_bucket", null: false
+    t.string "s3_key", null: false
+    t.datetime "indexed_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["rekognition_face_id"], name: "index_face_records_on_rekognition_face_id", unique: true
+    t.index ["user_id"], name: "index_face_records_on_user_id"
   end
 
   create_table "point_actions", id: :serial, force: :cascade do |t|
@@ -86,11 +98,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_20_000001) do
     t.datetime "phone_verified_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "indexed_at"
+    t.string "registration_status"
     t.index ["referral_code"], name: "index_users_on_referral_code"
     t.index ["rut"], name: "index_users_on_rut", unique: true
   end
 
   add_foreign_key "audit_logs", "admins"
+  add_foreign_key "face_records", "users"
   add_foreign_key "point_transactions", "point_actions"
   add_foreign_key "point_transactions", "users"
 end

@@ -1,6 +1,6 @@
 module Api
   module V1
-    class AuthController < ApplicationController
+    class AuthController < BaseController
       skip_before_action :verify_authenticity_token, if: :json_request?
       before_action :authenticate_user!, only: [:me, :refresh, :verify_phone]
 

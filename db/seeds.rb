@@ -109,6 +109,7 @@ if Rails.env.development?
 
     User.find_or_create_by!(rut: rut) do |u|
       u.phone = phone
+      u.password = ENV.fetch("SEED_USER_PASSWORD", "Usuario123!")
       u.birth_month = birth_month
       u.birth_year = birth_year
       u.photo_url = "/uploads/placeholder.jpg"

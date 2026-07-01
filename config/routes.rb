@@ -1,7 +1,9 @@
 Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
-      post "users", to: "users#create"
+      namespace :frontend do
+        post "users", to: "users#create"
+      end
       post "login", to: "sessions#create"
       delete "logout", to: "sessions#destroy"
       post "refresh", to: "auth#refresh"
@@ -10,17 +12,23 @@ Rails.application.routes.draw do
       get "teams", to: "teams#index"
     end
 
-    namespace :admin do
-      post "login", to: "sessions#create"
-      delete "logout", to: "sessions#destroy"
+    scope path: "v1" do
+      namespace :admin do
+        post "login", to: "sessions#create"
+        delete "logout", to: "sessions#destroy"
 
-      get "dashboard", to: "dashboard#index"
+        get "dashboard", to: "dashboard#index"
 
-      resources :users, only: [:index, :show, :update, :destroy]
-      resources :teams
-      resources :point_actions
-      resources :point_transactions, only: [:index]
-      resources :audit_logs, only: [:index]
+        resources :users, only: [:index, :show, :update, :destroy] do
+          member do
+            get :face_records
+          end
+        end
+        resources :teams
+        resources :point_actions
+        resources :point_transactions, only: [:index]
+        resources :audit_logs, only: [:index]
+      end
     end
   end
 

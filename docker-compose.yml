@@ -1,90 +1,90 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app_perfil_development}
-      POSTGRES_USER: ${POSTGRES_USER:-app_perfil}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_perfil}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-app_perfil_development}
+            POSTGRES_USER: ${POSTGRES_USER:-app_perfil}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_perfil}"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+    redis:
+        image: redis:7-alpine
+        ports:
+            - "6380:6379"
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
 
-  face-search:
-    build:
-      context: ../face-search-service
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file:
-      - .env.aws
-      - ../face-search-service/.env.development
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-app_perfil}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-app_perfil_development}?sslmode=disable
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      REKOGNITION_COLLECTION_ID: ${REKOGNITION_COLLECTION_ID:-socios_stadium_users}
-      FACE_SEARCH_TOKEN: ${FACE_SEARCH_TOKEN}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
-      PORT: "8080"
+    face-search:
+        build:
+            context: ../face-search-service
+            dockerfile: Dockerfile
+        ports:
+            - "8081:8080"
+        depends_on:
+            postgres:
+                condition: service_healthy
+        env_file:
+            - .env.aws
+            - ../face-search-service/.env.development
+        environment:
+            DATABASE_URL: postgres://${POSTGRES_USER:-app_perfil}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-app_perfil_development}?sslmode=disable
+            AWS_REGION: ${AWS_REGION:-us-east-1}
+            REKOGNITION_COLLECTION_ID: ${REKOGNITION_COLLECTION_ID:-socios_stadium_users}
+            FACE_SEARCH_TOKEN: ${FACE_SEARCH_TOKEN}
+            CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174}
+            PORT: "8080"
 
-  app:
-    build: .
-    command: bash -c "rm -f tmp/pids/server.pid && bundle install --quiet && bundle exec rails server -b 0.0.0.0"
-    volumes:
-      - .:/app
-      - uploads:/app/storage
-      - bundle:/usr/local/bundle
-    ports:
-      - "3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env.aws
-      - .env.development
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-app_perfil}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-app_perfil_development}
-      REDIS_URL: redis://redis:6379/1
-      RAILS_ENV: development
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:3001}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-perfilamiento-faces}
-      REKOGNITION_COLLECTION_ID: ${REKOGNITION_COLLECTION_ID:-socios_stadium_users}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
-      SEED_OPERATOR_PASSWORD: ${SEED_OPERATOR_PASSWORD}
-      SEED_SUPPORT_PASSWORD: ${SEED_SUPPORT_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/up || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    app:
+        build: .
+        command: bash -c "rm -f tmp/pids/server.pid && bundle install --quiet && bundle exec rails server -b 0.0.0.0"
+        volumes:
+            - .:/app
+            - uploads:/app/storage
+            - bundle:/usr/local/bundle
+        ports:
+            - "3000:3000"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        env_file:
+            - .env.aws
+            - .env.development
+        environment:
+            DATABASE_URL: postgres://${POSTGRES_USER:-app_perfil}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-app_perfil_development}
+            REDIS_URL: redis://redis:6379/1
+            RAILS_ENV: development
+            SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+            JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+            CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:3001}
+            AWS_REGION: ${AWS_REGION:-us-east-1}
+            AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-perfilamiento-faces}
+            REKOGNITION_COLLECTION_ID: ${REKOGNITION_COLLECTION_ID:-socios_stadium_users}
+            SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+            SEED_OPERATOR_PASSWORD: ${SEED_OPERATOR_PASSWORD}
+            SEED_SUPPORT_PASSWORD: ${SEED_SUPPORT_PASSWORD}
+        healthcheck:
+            test: ["CMD-SHELL", "curl -f http://localhost:3000/up || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
 volumes:
-  postgres_data:
-  redis_data:
-  uploads:
-  bundle:
+    postgres_data:
+    redis_data:
+    uploads:
+    bundle:

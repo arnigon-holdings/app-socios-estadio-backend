@@ -14,7 +14,7 @@ module Api
           users: users.map { |u| user_response(u) },
           pagination: {
             page: users.current_page,
-            per_page: users.per_page,
+            per_page: users.limit_value,
             total: users.total_count,
             pages: users.total_pages
           }
@@ -52,6 +52,24 @@ module Api
         head :no_content
       end
 
+      def face_records
+        user = User.find(params[:id])
+
+        records = user.face_records.order(created_at: :asc).map do |record|
+          {
+            id: record.id,
+            rekognition_face_id: record.rekognition_face_id,
+            s3_key: record.s3_key,
+            face_type: record.s3_key.to_s.include?("/audit/") ? "audit" : "reference",
+            photo_url: presigned_face_url(record.s3_bucket, record.s3_key),
+            indexed_at: record.indexed_at,
+            created_at: record.created_at
+          }
+        end
+
+        render json: { face_records: records }
+      end
+
       private
 
       def user_response(user)
@@ -64,6 +82,8 @@ module Api
           teams_ids: user.teams_ids,
           photo_url: user.photo_url,
           referral_code: user.referral_code,
+          registration_status: user.registration_status,
+          phone_verified: user.phone_verified,
           created_at: user.created_at
         }
       end
@@ -77,8 +97,22 @@ module Api
         )
       end
 
+      def presigned_face_url(bucket, key)
+        return nil if bucket.blank? || key.blank?
+
+        Aws::S3::Presigner.new.presigned_url(
+          :get_object,
+          bucket: bucket,
+          key: key,
+          expires_in: 3600
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[face_records] presign failed key=#{key}: #{e.class}: #{e.message}")
+        nil
+      end
+
       def update_params
-        params.require(:user).permit(:phone, :teams_ids, :active)
+        params.require(:user).permit(:phone, :registration_status, :active, teams_ids: [])
       end
     end
   end

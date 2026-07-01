@@ -22,7 +22,7 @@ module Api
           logs: logs.map { |log| log_response(log) },
           pagination: {
             page: logs.current_page,
-            per_page: logs.per_page,
+            per_page: logs.limit_value,
             total: logs.total_count,
             pages: logs.total_pages
           }

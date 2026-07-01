@@ -1,6 +1,6 @@
 module Api
   module V1
-    class SessionsController < ApplicationController
+    class SessionsController < BaseController
       skip_before_action :verify_authenticity_token, if: :json_request?
       before_action :authenticate_user!, only: [:destroy]
 
