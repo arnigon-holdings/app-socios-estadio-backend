@@ -46,17 +46,15 @@ module Api
         def destroy
           user = User.find(params[:id])
 
-          log_action("delete_user", "user", user.id, { rut: user.rut })
+          log_action("unlink_user", "user", user.id, { rut: user.rut, face_records_count: user.face_records.count })
 
-          if user.destroy
-            head :no_content
-          else
-            render json: { error: user.errors.full_messages }, status: :unprocessable_entity
-          end
+          user.update!(rut: nil)
+
+          head :no_content
         rescue => e
-          Rails.logger.error "Destroy user error: #{e.class} - #{e.message}"
+          Rails.logger.error "Unlink user error: #{e.class} - #{e.message}"
           Rails.logger.error e.backtrace.first(5).join("\n")
-          render json: { error: "Error al eliminar usuario: #{e.message}" }, status: :internal_server_error
+          render json: { error: "Error al desvincular usuario: #{e.message}" }, status: :internal_server_error
         end
 
         def face_records
