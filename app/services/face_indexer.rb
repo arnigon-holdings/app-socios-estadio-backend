@@ -17,30 +17,45 @@ class FaceIndexer
     return Result.new(status: :skipped, error: 'AWS_S3_BUCKET_NAME not configured') if bucket.blank?
     return Result.new(status: :skipped, error: 'REKOGNITION_COLLECTION_ID not configured') if collection.blank?
 
-    reference = S3Uploader.upload_base64(
-      bucket: bucket,
-      key_prefix: "users/#{@user.id}/reference",
-      base64_data: @reference_photo_base64
-    )
-    return Result.new(status: :invalid_photo, error: 'reference photo missing or invalid') if reference.nil?
+    all_photos = [@reference_photo_base64] + @audit_images
+    indexed = 0
 
-    upload_audit_images
+    all_photos.each_with_index do |photo_base64, idx|
+      s3_data = S3Uploader.upload_base64(
+        bucket: bucket,
+        key_prefix: "users/#{@user.id}/pose_#{idx}",
+        base64_data: photo_base64
+      )
+      next if s3_data.nil?
 
-    response = rekognition_client.index_faces(
-      collection_id: collection,
-      image: { s3_object: { bucket: bucket, name: reference[:s3_key] } },
-      external_image_id: @user.id.to_s,
-      detection_attributes: ['DEFAULT'],
-      max_faces: 1,
-      quality_filter: 'AUTO'
-    )
+      begin
+        response = rekognition_client.index_faces(
+          collection_id: collection,
+          image: { s3_object: { bucket: bucket, name: s3_data[:s3_key] } },
+          external_image_id: "#{@user.id}_pose_#{idx}",
+          detection_attributes: ['DEFAULT'],
+          max_faces: 1,
+          quality_filter: 'AUTO'
+        )
 
-    face = response.face_records.first
-    return Result.new(status: :no_face_detected, error: 'Rekognition detected no face in reference photo') if face.nil?
+        face = response.face_records.first
+        if face
+          persist(face.face.face_id, s3_data[:s3_key])
+          indexed += 1
+        else
+          Rails.logger.warn("[FaceIndexer] user=#{@user.id} pose=#{idx} no face detected")
+        end
+      rescue Aws::Errors::ServiceError, StandardError => e
+        Rails.logger.error("[FaceIndexer] user=#{@user.id} pose=#{idx} error=#{e.class}: #{e.message}")
+      end
+    end
 
-    face_record = persist(face.face.face_id, reference[:s3_key])
-
-    Result.new(status: :indexed, face_record: face_record)
+    if indexed > 0
+      @user.update!(indexed_at: Time.current)
+      Result.new(status: :indexed)
+    else
+      Result.new(status: :no_face_detected, error: 'No faces detected in any pose')
+    end
   rescue Aws::Errors::ServiceError, StandardError => e
     Rails.logger.error("[FaceIndexer] user=#{@user.id} error=#{e.class}: #{e.message}")
     Result.new(status: :error, error: "#{e.class}: #{e.message}")

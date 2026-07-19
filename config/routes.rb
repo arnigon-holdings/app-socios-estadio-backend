@@ -8,6 +8,12 @@ Rails.application.routes.draw do
       get "me", to: "auth#me"
       post "verify-phone", to: "auth#verify_phone"
       get "teams", to: "teams#index"
+      get "liveness/:session_id/results", to: "liveness#results"
+
+      namespace :frontend do
+        post "face-poses/validate", to: "face_poses#validate"
+        post "users", to: "users#create"
+      end
     end
 
     namespace :admin do
@@ -16,7 +22,9 @@ Rails.application.routes.draw do
 
       get "dashboard", to: "dashboard#index"
 
-      resources :users, only: [:index, :show, :update, :destroy]
+      resources :users, only: [:index, :show, :update, :destroy] do
+        get :face_records, on: :member
+      end
       resources :teams
       resources :point_actions
       resources :point_transactions, only: [:index]

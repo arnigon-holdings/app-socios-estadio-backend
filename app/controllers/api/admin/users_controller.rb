@@ -14,7 +14,7 @@ module Api
           users: users.map { |u| user_response(u) },
           pagination: {
             page: users.current_page,
-            per_page: users.per_page,
+            per_page: users.limit_value,
             total: users.total_count,
             pages: users.total_pages
           }
@@ -27,6 +27,13 @@ module Api
         log_action("view_user", "user", user.id, { viewed_fields: ["profile"] })
 
         render json: { user: user_response_with_details(user) }
+      end
+
+      def face_records
+        user = User.find(params[:id])
+        records = user.face_records.order(indexed_at: :desc).map { |r| face_record_response(r) }
+        log_action("view_face_records", "user", user.id, { count: records.size })
+        render json: { face_records: records }
       end
 
       def update
@@ -64,7 +71,9 @@ module Api
           teams_ids: user.teams_ids,
           photo_url: user.photo_url,
           referral_code: user.referral_code,
-          created_at: user.created_at
+          created_at: user.created_at,
+          biometric_status: user.biometric_status,
+          indexed_at: user.indexed_at
         }
       end
 
@@ -78,7 +87,33 @@ module Api
       end
 
       def update_params
-        params.require(:user).permit(:phone, :teams_ids, :active)
+        params.require(:user).permit(:phone, :teams_ids, :active, :registration_status)
+      end
+
+      def face_record_response(face_record)
+        {
+          id: face_record.id,
+          rekognition_face_id: face_record.rekognition_face_id,
+          s3_bucket: face_record.s3_bucket,
+          s3_key: face_record.s3_key,
+          indexed_at: face_record.indexed_at,
+          created_at: face_record.created_at,
+          photo_url: presigned_url(face_record.s3_bucket, face_record.s3_key)
+        }
+      end
+
+      def presigned_url(bucket, key)
+        return nil if bucket.blank? || key.blank?
+        region = ENV.fetch('AWS_REGION', 'us-east-1')
+        signer = Aws::S3::Presigner.new(client: Aws::S3::Client.new(region: region))
+        signer.presigned_url(
+          :get_object,
+          bucket: bucket,
+          key: key,
+          expires_in: 3600
+        )
+      rescue StandardError
+        nil
       end
     end
   end

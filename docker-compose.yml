@@ -53,6 +53,7 @@ services:
     volumes:
       - .:/app
       - uploads:/app/storage
+      - ./storage/uploads:/app/public/uploads
       - bundle:/usr/local/bundle
     ports:
       - "3000:3000"
@@ -82,6 +83,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  frontend:
+    build:
+      context: ../app-socios-estadio-frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ../app-socios-estadio-frontend:/app
+      - /app/node_modules
+    ports:
+      - "5174:5174"
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      VITE_API_BASE_URL: http://app:3000
+      VITE_FACE_LIVENESS_API_KEY: JEiwiDzuR06dq6iRHTIpj1Lac77ucOXbaijjF40z
+      VITE_FACE_LIVENESS_API_URL: https://a8rgaq8bv0.execute-api.us-east-1.amazonaws.com/prod/face-liveness
+      VITE_COGNITO_IDENTITY_POOL_ID: us-east-1:78eaf27e-01b2-404b-8bc4-dfcf53c41c24
+      VITE_COGNITO_USER_POOL_ID: us-east-1_AsiQAjI7t
+      VITE_COGNITO_USER_POOL_CLIENT_ID: 75lugrb63gn1p2abe2gjplicue
 
 volumes:
   postgres_data:

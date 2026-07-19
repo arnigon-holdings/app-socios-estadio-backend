@@ -38,7 +38,8 @@ backend/
 │   └── services/
 │       ├── jwt_service.rb
 │       ├── s3_uploader.rb       ← base64 → S3 (SSE-S3 + content-type check)
-│       └── face_indexer.rb      ← S3 + IndexFaces + face_records (transaccional)
+│       ├── face_indexer.rb      ← S3 + IndexFaces + face_records (transaccional)
+│       └── liveness_validator.rb ← Rekognition GetFaceLivenessSessionResults SDK
 ├── db/
 │   ├── migrate/
 │   │   └── 20260626090001_add_face_records_and_indexed_at.rb
@@ -62,6 +63,7 @@ backend/
 
 - `POST /api/v1/frontend/users` — registro de socio (RUT, phone, password, photo base64, audit_images, consents).
 - `GET /api/v1/teams` — equipos activos (para selector).
+- `GET /api/v1/liveness/:session_id/results` — resultados de liveness (llama `GetFaceLivenessSessionResults` via SDK de Rekognition, no via API Gateway). Retorna `{ sessionId, confidence, status, referenceImage }`.
 
 ### Auth (admin)
 
@@ -81,7 +83,7 @@ backend/
 
 ### Flow M5 (registro → index → búsqueda)
 
-1. `POST /api/v1/frontend/users` → crea `User` con `photo_url` (local) y dispara `FaceIndexer` async-style (sync, non-blocking).
+1. `POST /api/v1/frontend/users` → **`LivenessValidator.validate(session_id)`** re-verifica contra Rekognition SDK. Si falla, 422. Luego crea `User` con `photo_url` (local) y dispara `FaceIndexer` async-style (sync, non-blocking).
 2. `FaceIndexer.index` sube foto a S3 (`users/<id>/reference/<uuid>.<ext>`), llama `Rekognition.IndexFaces`, crea `face_records` y setea `users.indexed_at`.
 3. Admin → `/face-search` (admin panel) → POST a Go service `/search-face` → Rekognition `SearchFacesByImage` → match con `user_id` → JOIN en DB → response con `rut`, `phone`, `confidence`, `photo_url` (presigned S3 1h).
 
@@ -216,9 +218,11 @@ Estas credenciales se crean con `rails db:seed`. **Nunca setear en producción**
 - **`bundle install` corre en cada `docker compose up -d`** porque hay un `bundle` named volume y el comando es `bundle install --quiet && bundle exec rails server`. Primer boot es lento (~1 min).
 - **Sin `db:reset` antes de `db:seed`**: siembra agrega duplicados (idempotencia parcial). Usar `db:reset` para clean state.
 - **El comando del `app` service en compose** corre `bundle install --quiet` siempre. Si cambias `Gemfile`, no necesitás rebuild — el volume `bundle` persiste.
-- **`face_records` existe desde M5**: si haces `db:reset`, los faces en Rekognition quedan huérfanos (pointing a user_ids que ya no existen). `face-search` los ignora silenciosamente.
+- **`face_records` existe desde M5**: si hacés `db:reset`, los faces en Rekognition quedan huérfanos (pointing a user_ids que ya no existen). `face-search` los ignora silenciosamente.
 - **El secret `JWT_SECRET_KEY` debe tener ≥32 chars** (validación al boot).
 - **Tests usan DB `app_perfil_test`** (separada de dev). El compose no la crea automáticamente; tenés que correr `RAILS_ENV=test bundle exec rails db:test:prepare`.
+- **Puerto del backend: 3000**. El docker compose mapea `3000:3000`. Si el puerto 3000 está ocupado, liberarlo antes de levantar. El frontend tiene `VITE_API_BASE_URL` en su `.env` — debe coincidir con el puerto real del backend (cambiar a `3001` si se remapea el puerto en el compose).
+- **`LivenessValidator` usa SDK de Rekognition (no API Gateway)**: evita CORS en el browser. El frontend llama `/api/v1/liveness/:sessionId/results` que pasa por el proxy de Vite en dev. En prod, el frontend llama directo al backend Rails con CORS configurado.
 
 ## Decisiones arquitectónicas
 

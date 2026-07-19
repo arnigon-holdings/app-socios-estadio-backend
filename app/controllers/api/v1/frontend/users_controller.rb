@@ -7,8 +7,16 @@ module Api
         skip_before_action :verify_authenticity_token, if: :json_request?
 
         def create
-          photo_url = PhotoUploader.upload(params[:photo])
+          pose_images = Array(params[:pose_images])
+          if pose_images.blank?
+            render json: { error: 'Fotos de poses requeridas' }, status: :bad_request
+            return
+          end
 
+          frontal = pose_images.find { |p| p[:pose_variant] == 'frontal' } || pose_images.first
+          reference_photo_base64 = frontal[:image]
+
+          photo_url = PhotoUploader.upload(reference_photo_base64)
           unless photo_url
             render json: { error: 'Foto requerida o formato inválido (JPEG/PNG, máx 5MB)' }, status: :bad_request
             return
@@ -36,7 +44,7 @@ module Api
             invalid_ids = user.teams_ids - valid_team_ids
             if invalid_ids.any?
               if photo_url.start_with?('/uploads/')
-                File.delete(Rails.root.join('storage/uploads',
+                File.delete(Rails.root.join('public/uploads',
                                             photo_url.split('/').last))
               end
               render json: { error: "Equipos inválidos: #{invalid_ids.join(', ')}" }, status: :bad_request
@@ -46,18 +54,31 @@ module Api
 
           if User.exists?(rut: user.rut)
             if photo_url.start_with?('/uploads/')
-              File.delete(Rails.root.join('storage/uploads',
+              File.delete(Rails.root.join('public/uploads',
                                           photo_url.split('/').last))
             end
             render json: { error: 'RUT ya registrado' }, status: :conflict
             return
           end
 
-          user.metadata = capture_request_metadata
+          liveness_result = LivenessValidator.validate(params[:liveness_session_id])
+          unless liveness_result.valid
+            if photo_url.start_with?('/uploads/')
+              File.delete(Rails.root.join('public/uploads',
+                                          photo_url.split('/').last))
+            end
+            render json: { error: liveness_result.error || 'Verificación de identidad no completada' }, status: :unprocessable_entity
+            return
+          end
+
+          user.metadata = capture_request_metadata.merge(
+            pose_images: pose_images.map { |p| { pose_variant: p[:pose_variant] } }
+          )
           user.referral_code = generate_referral_code
 
           if user.save
-            enqueue_face_indexing(user, params[:photo], Array(params[:audit_images]))
+            other_poses = pose_images.reject { |p| p[:pose_variant] == frontal[:pose_variant] }
+            enqueue_face_indexing(user, reference_photo_base64, other_poses.map { |p| p[:image] })
 
             render json: {
               user: user_response(user),
@@ -65,7 +86,7 @@ module Api
             }, status: :created
           else
             if photo_url.start_with?('/uploads/')
-              File.delete(Rails.root.join('storage/uploads',
+              File.delete(Rails.root.join('public/uploads',
                                           photo_url.split('/').last))
             end
             render json: { error: user.errors.full_messages }, status: :unprocessable_entity
@@ -85,10 +106,6 @@ module Api
           phone = phone.gsub(/\s/, '')
           phone = "+569#{phone}" unless phone.starts_with?('+569')
           phone
-        end
-
-        def user_params
-          params.require(:user).permit(:rut, :phone, :birth_month, :birth_year, :photo, teams_ids: [], consents: {})
         end
 
         def enqueue_face_indexing(user, reference_photo_base64, audit_images)

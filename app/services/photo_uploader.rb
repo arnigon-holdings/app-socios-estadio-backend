@@ -14,7 +14,7 @@ class PhotoUploader
 
     ext = content_type == "image/png" ? "png" : "jpg"
     filename = "#{SecureRandom.uuid}.#{ext}"
-    filepath = Rails.root.join("storage", "uploads", filename)
+    filepath = Rails.root.join("public", "uploads", filename)
 
     FileUtils.mkdir_p(filepath.parent)
     File.binwrite(filepath, image)

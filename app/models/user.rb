@@ -26,6 +26,10 @@ class User < ApplicationRecord
     phone_verified
   end
 
+  def biometric_status
+    face_records.any? && face_records.where(indexed_at: nil).none? ? 'indexed' : 'pending'
+  end
+
   private
 
   def normalize_rut

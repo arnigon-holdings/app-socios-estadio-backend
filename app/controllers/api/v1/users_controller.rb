@@ -32,14 +32,14 @@ module Api
           valid_team_ids = Team.active.where(id: user.teams_ids).pluck(:id)
           invalid_ids = user.teams_ids - valid_team_ids
           if invalid_ids.any?
-            File.delete(Rails.root.join("storage/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
+            File.delete(Rails.root.join("public/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
             render json: { error: "Equipos inválidos: #{invalid_ids.join(', ')}" }, status: :bad_request
             return
           end
         end
 
         if User.exists?(rut: user.rut)
-          File.delete(Rails.root.join("storage/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
+          File.delete(Rails.root.join("public/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
           render json: { error: "RUT ya registrado" }, status: :conflict
           return
         end
@@ -53,7 +53,7 @@ module Api
             referral_code: user.referral_code
           }, status: :created
         else
-          File.delete(Rails.root.join("storage/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
+          File.delete(Rails.root.join("public/uploads", photo_url.split("/").last)) if photo_url.start_with?("/uploads/")
           render json: { error: user.errors.full_messages }, status: :unprocessable_entity
         end
       end
